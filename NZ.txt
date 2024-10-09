@@ -1,0 +1,172 @@
+import tkinter as tk
+from tkinter import ttk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from math import cos, sin, pi
+
+# Пример данных
+data = [
+    {
+        "platform": 'VK',
+        'subscrube': 138496,
+        "views": [2000, 3300, 4300, 12403, 12412, 12234, 12321, 22311, 54421, 12143]
+    },
+    {
+        "platform": 'TG',
+        'subscrube': 382496,
+        "views": [2000, 33300, 4300, 124034, 12412, 12234, 123121, 22311, 54421, 12143]
+    }
+]
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Data Visualization")
+        self.geometry("1000x800")
+
+        self.name_label = tk.Label(self, text="Введите имя:")
+        self.name_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+        self.name_entry = tk.Entry(self)
+        self.name_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+
+        self.platform_label = tk.Label(self, text="Выберите платформу:")
+        self.platform_label.grid(row=1, column=0, padx=10, pady=10, sticky="w")
+
+        self.button_frame = tk.Frame(self)
+        self.button_frame.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+
+        for i, d in enumerate(data):
+            button = tk.Button(self.button_frame, text=d['platform'], command=lambda d=d: self.update_graph(d))
+            button.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
+
+        self.compare_button = tk.Button(self.button_frame, text="Сравнить все", command=self.compare_all)
+        self.compare_button.grid(row=0, column=len(data), padx=5, pady=5, sticky="ew")
+
+        self.graph_type_label = tk.Label(self, text="Выберите тип графика:")
+        self.graph_type_label.grid(row=2, column=0, padx=10, pady=10, sticky="w")
+
+        self.graph_type = tk.StringVar(value="line")
+        self.graph_type_frame = tk.Frame(self)
+        self.graph_type_frame.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
+
+        self.line_button = tk.Radiobutton(self.graph_type_frame, text="Линейный", variable=self.graph_type, value="line", command=self.update_graph_type)
+        self.line_button.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+
+        self.bar_button = tk.Radiobutton(self.graph_type_frame, text="Столбчатый", variable=self.graph_type, value="bar", command=self.update_graph_type)
+        self.bar_button.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        self.pie_button = tk.Radiobutton(self.graph_type_frame, text="Круговой", variable=self.graph_type, value="pie", command=self.update_graph_type)
+        self.pie_button.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+
+        self.text_button = tk.Radiobutton(self.graph_type_frame, text="Текстовый", variable=self.graph_type, value="text", command=self.update_graph_type)
+        self.text_button.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+        self.text_area = tk.Text(self, height=10)
+        self.text_area.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.text_area.grid_remove()  # Скрыть текстовое поле по умолчанию
+
+        # Основной график для линейных и столбчатых диаграмм
+        self.figure, self.ax = plt.subplots()
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self)
+        self.canvas.get_tk_widget().grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+        # Отдельный Canvas для круговой диаграммы
+        self.pie_canvas = tk.Canvas(self, width=400, height=400, bg="lightblue")
+        self.pie_canvas.grid(row=4, column=2, padx=10, pady=10, sticky="nsew")
+        self.pie_canvas.grid_remove()  # Скрыть по умолчанию
+
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(4, weight=1)
+
+    def update_graph_type(self):
+        graph_type = self.graph_type.get()
+        if graph_type == "text":
+            self.text_area.grid()
+            self.canvas.get_tk_widget().grid_remove()
+            self.pie_canvas.grid_remove()
+            self.show_text()
+        elif graph_type == "pie":
+            self.pie_canvas.grid()
+            self.canvas.get_tk_widget().grid_remove()
+            self.text_area.grid_remove()
+        else:
+            self.text_area.grid_remove()
+            self.pie_canvas.grid_remove()
+            self.canvas.get_tk_widget().grid()
+
+    def clear_pie_chart(self):
+        """Очистить Canvas для круговой диаграммы."""
+        self.pie_canvas.delete("all")
+
+    def draw_pie_chart(self, platforms_views, platforms_labels):
+        """Рисует круговую диаграмму с использованием Canvas."""
+        self.clear_pie_chart()
+        total_views_sum = sum(platforms_views)
+        start_angle = 0
+        colors = ["red", "blue"]
+        radius = 150
+
+        for i, views in enumerate(platforms_views):
+            extent = views / total_views_sum * 360  # Угол для каждого сектора
+            self.pie_canvas.create_arc(50, 50, 350, 350, start=start_angle, extent=extent, fill=colors[i])
+            mid_angle = start_angle + extent / 2
+            # Расчет координат для вывода процентного текста
+            x_text = 200 + radius * 0.6 * cos(mid_angle * pi / 180)
+            y_text = 200 - radius * 0.6 * sin(mid_angle * pi / 180)
+            percentage = f"{(views / total_views_sum) * 100:.1f}%"
+            self.pie_canvas.create_text(x_text, y_text, text=percentage, font=("Arial", 10))
+            start_angle += extent
+
+        # Заголовок
+        self.pie_canvas.create_text(200, 380, text="Процентное соотношение просмотров", font=("Arial", 14))
+
+    def update_graph(self, platform_data):
+        graph_type = self.graph_type.get()
+        if graph_type == "text":
+            self.show_text(platform_data)
+        elif graph_type == "pie":
+            platforms_views = [sum(d['views']) for d in data]
+            platforms_labels = [d['platform'] for d in data]
+            self.draw_pie_chart(platforms_views, platforms_labels)
+        else:
+            self.ax.clear()
+            if graph_type == "line":
+                self.ax.plot(platform_data['views'])
+            elif graph_type == "bar":
+                self.ax.bar(range(len(platform_data['views'])), platform_data['views'])
+            self.ax.set_title(f"Views for {platform_data['platform']}")
+            self.canvas.draw()
+
+    def compare_all(self):
+        graph_type = self.graph_type.get()
+        if graph_type == "text":
+            self.show_text()
+        elif graph_type == "pie":
+            # Для круговой диаграммы: данные для всех платформ
+            platforms_views = [sum(d['views']) for d in data]
+            platforms_labels = [d['platform'] for d in data]
+            self.draw_pie_chart(platforms_views, platforms_labels)
+        else:
+            self.ax.clear()
+            if graph_type == "line":
+                for d in data:
+                    self.ax.plot(d['views'], label=d['platform'])
+            elif graph_type == "bar":
+                for d in data:
+                    self.ax.bar(range(len(d['views'])), d['views'], label=d['platform'])
+            self.ax.set_title("Comparison of Views Across Platforms")
+            self.ax.legend()
+            self.canvas.draw()
+
+    def show_text(self, platform_data=None):
+        self.text_area.delete(1.0, tk.END)
+        if platform_data:
+            self.text_area.insert(tk.END, f"Platform: {platform_data['platform']}\nSubscribers: {platform_data['subscrube']}\nViews: {platform_data['views']}\n\n")
+        else:
+            for d in data:
+                self.text_area.insert(tk.END, f"Platform: {d['platform']}\nSubscribers: {d['subscrube']}\nViews: {d['views']}\n\n")
+
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()
